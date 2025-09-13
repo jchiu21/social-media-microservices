@@ -50,7 +50,8 @@ userSchema.methods.comparePasswords = async function (candidatePassword) {
 };
 
 // create an index for username field to speed up querying
-userSchema.index({ username: 1 });
+// (removed for now since text index may not be needed)
+// userSchema.index({ username: "text" });
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;

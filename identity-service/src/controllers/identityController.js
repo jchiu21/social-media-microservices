@@ -26,23 +26,23 @@ const registerUser = async (req, res) => {
       logger.warn("User already exists");
       return res.status(400).json({
         success: false,
-        message: error.details[0].message,
+        message: "User with this email or username already exists",
       });
     }
     // else, create User
     user = new User({ username, email, password });
     await user.save();
-    logger.warn("User saved successfully", user._id);
+    logger.info("User saved successfully", user._id);
 
     const { accessToken, refreshToken } = await generateTokens(user);
     res.status(201).json({
       success: true,
-      message: "user registered successfully",
+      message: "User registered successfully",
       accessToken,
       refreshToken,
     });
   } catch (error) {
-    logger.error("Registration error occured", e);
+    logger.error("Registration error occured", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
