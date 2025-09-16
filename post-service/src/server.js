@@ -31,9 +31,10 @@ app.use((req, res, next) => {
 
 // routes -> pass redis client (dependency injection) so requests share a single instance
 app.use(
-  "api/posts",
+  "/api/posts",
   (req, res, next) => {
     req.redisClient = redisClient;
+    next();
   },
   postRoutes
 );
@@ -41,7 +42,7 @@ app.use(
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  logger.info(`Identity service running on port ${PORT}`);
+  logger.info(`Post service running on port ${PORT}`);
 });
 
 // triggers if promise fails reject() or throw inside async but is never caught
