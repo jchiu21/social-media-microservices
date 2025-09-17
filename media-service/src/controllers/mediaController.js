@@ -13,9 +13,9 @@ const uploadMedia = async (req, res) => {
         message: "No file found. Please add a file and try again!",
       });
     }
-    const { originalName, mimeType, buffer } = req.file;
+    const { originalname, mimetype, buffer } = req.file;
     const userId = req.user.userId;
-    logger.info(`File details: name=${originalName}, type=${mimeType}`);
+    logger.info(`File details: name=${originalname}, type=${mimetype}`);
     logger.info("Upload to cloudinary starting...");
 
     // upload to cloudinary
@@ -26,8 +26,8 @@ const uploadMedia = async (req, res) => {
     // store in mongoDB
     const newMedia = new Media({
       publicId: cloudinaryUploadResult.public_id,
-      originalName,
-      mimeType,
+      originalName: originalname,
+      mimeType: mimetype,
       url: cloudinaryUploadResult.secure_url,
       userId,
     });

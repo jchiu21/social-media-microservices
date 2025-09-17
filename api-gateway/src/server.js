@@ -17,12 +17,22 @@ const redisClient = new Redis(process.env.REDIS_URL);
 
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
+// Skip JSON parsing for multipart/form-data (file uploads)
+app.use((req, res, next) => {
+  if (req.is && req.is("multipart/form-data")) {
+    return next();
+  }
+  return express.json()(req, res, next);
+});
 
 // logger middleware
 app.use((req, res, next) => {
   logger.info(`Recieved ${req.method} request to ${req.url}`);
-  logger.info("Request body", req.body);
+  if (!(req.is && req.is("multipart/form-data"))) {
+    logger.info("Request body", req.body);
+  } else {
+    logger.info("Skipping body log for multipart/form-data");
+  }
   next();
 });
 
@@ -61,6 +71,7 @@ const proxyOptions = {
   },
 };
 
+// proxy for identity service
 // forward any request starting with /v1/auth to the identity service
 app.use(
   "/v1/auth",
@@ -81,6 +92,7 @@ app.use(
   })
 );
 
+// proxy for post service
 app.use(
   "/v1/posts",
   validateToken,
@@ -93,11 +105,37 @@ app.use(
       return proxyReqOpts;
     },
     userResDecorator: (proxyRes, proxyResData, userReq, userRes) => {
+      logger.info(`Response recieved from Post service ${proxyRes.statusCode}`);
+      return proxyResData;
+    },
+  })
+);
+
+// proxy for media service
+app.use(
+  "/v1/media",
+  validateToken,
+  proxy(process.env.MEDIA_SERVICE_URL, {
+    ...proxyOptions,
+    proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
+      proxyReqOpts.headers["x-user-id"] = srcReq.user.userId;
+      const contentType = srcReq.headers["content-type"] || "";
+      if (!contentType.startsWith("multipart/form-data")) {
+        proxyReqOpts.headers["content-type"] = "application/json";
+      } else {
+        // let multipart pass through untouched
+        proxyReqOpts.headers["content-type"] = contentType;
+      }
+      return proxyReqOpts;
+    },
+    userResDecorator: (proxyRes, proxyResData, userReq, userRes) => {
       logger.info(
-        `Response recieved from Post service ${proxyRes.statusCode}`
+        `Response recieved from Media service ${proxyRes.statusCode}`
       );
       return proxyResData;
     },
+    // stream the raw request body without serializing, no buffering
+    parseReqBody: false,
   })
 );
 
@@ -108,8 +146,7 @@ app.listen(PORT, () => {
   logger.info(
     `Identity service is running on ${process.env.IDENTITY_SERVICE_URL}`
   );
-    logger.info(
-    `Post service is running on ${process.env.POST_SERVICE_URL}`
-  );
+  logger.info(`Post service is running on ${process.env.POST_SERVICE_URL}`);
+  logger.info(`Media service is running on ${process.env.MEDIA_SERVICE_URL}`);
   logger.info(`Redis URL ${process.env.REDIS_URL}`);
 });
