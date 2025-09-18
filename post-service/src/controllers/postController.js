@@ -1,6 +1,7 @@
 const logger = require("../utils/logger");
 const Post = require("../models/Post");
 const { validatePost } = require("../utils/validation");
+const { publishEvent } = require("../utils/rabbitmq");
 
 const invalidatePostCache = async (req, input) => {
   const cachedKey = `post:${input}`; // key for specific post
@@ -14,6 +15,7 @@ const invalidatePostCache = async (req, input) => {
 
 const createPost = async (req, res) => {
   logger.info("Create post endpoint hit");
+
   // validate the schema
   const { error } = validatePost(req.body);
   if (error) {
@@ -25,6 +27,7 @@ const createPost = async (req, res) => {
       message: error.details[0].message,
     });
   }
+
   try {
     const { content, mediaIds } = req.body;
     const newPost = new Post({
@@ -120,17 +123,23 @@ const getPostById = async (req, res) => {
 
 const deletePost = async (req, res) => {
   try {
+    // query DB and delete
     const post = await Post.findOneAndDelete({
       _id: req.params.id,
       user: req.user.userId,
     });
-
     if (!post) {
       return res.status(404).json({
         success: false,
         message: "Post not found",
       });
     }
+    // publish post delete method
+    await publishEvent("post.deleted", {
+      postId: post._id.toString(),
+      userId: req.user.userId,
+      mediaIds: post.mediaIds,
+    });
 
     await invalidatePostCache(req, req.params.id);
     res.json({
