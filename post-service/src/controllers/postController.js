@@ -35,8 +35,16 @@ const createPost = async (req, res) => {
       content,
       mediaIds: mediaIds || [],
     });
-    // save new post and invalidate post cache
     await newPost.save();
+
+    // pubish post created event to search service
+    await publishEvent("post.created", {
+      postId: newPost._id.toString(),
+      userId: newPost.user.toString(),
+      content: newPost.content,
+      createdAt: newPost.createdAt,
+    });
+
     await invalidatePostCache(req, newPost._id.toString());
 
     logger.info("Post created successfully", newPost);
