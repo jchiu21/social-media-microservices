@@ -7,6 +7,7 @@ const helmet = require("helmet");
 const postRoutes = require("./routes/postRoutes");
 const errorHandler = require("../src/middleware/errorHandler");
 const logger = require("./utils/logger");
+const { connectRabbitMQ } = require("./utils/rabbitmq");
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -41,9 +42,18 @@ app.use(
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  logger.info(`Post service running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await connectRabbitMQ();
+    app.listen(PORT, () => {
+      logger.info(`Post service running on port ${PORT}`);
+    });
+  } catch (error) {
+    logger.error("Failed to connect to server", error);
+    process.exit(1);
+  }
+}
+startServer();
 
 // triggers if promise fails reject() or throw inside async but is never caught
 process.on("unhandledRejection", (reason, promise) => {
